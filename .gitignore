@@ -1,0 +1,8 @@
+
+*.pyc
+
+data\.txt
+
+\.vscode/settings\.json
+
+\.ipynb_checkpoints/Quadcopter_Project-checkpoint\.ipynb

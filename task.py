@@ -1,5 +1,9 @@
+import math
 import numpy as np
 from physics_sim import PhysicsSim
+
+def to_unit_vector(vector):
+    return vector / np.linalg.norm(vector)
 
 class Task():
     """Task (environment) that defines the goal and provides feedback to the agent."""
@@ -16,7 +20,7 @@ class Task():
         """
         # Simulation
         self.sim = PhysicsSim(init_pose, init_velocities, init_angle_velocities, runtime) 
-        self.action_repeat = 3
+        self.action_repeat = 1
 
         self.state_size = self.action_repeat * 6
         self.action_low = 0
@@ -26,21 +30,24 @@ class Task():
         # Goal
         self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.]) 
 
+    def distance_from_target(self):
+        return math.sqrt((np.power(self.target_pos[:3] - self.sim.pose[:3], 2)).sum())
+
     def get_reward(self):
-        """Uses current pose of sim to return reward."""
-        reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
-        return reward
+        target_reward = 1. / (0.001 + self.distance_from_target() ** 2)
+        crash_penalty = -1000. if self.sim.pose[2] < 0.1 else 0.
+        return target_reward + crash_penalty
 
     def step(self, rotor_speeds):
         """Uses action to obtain next state, reward, done."""
         reward = 0
         pose_all = []
         for _ in range(self.action_repeat):
-            done = self.sim.next_timestep(rotor_speeds) # update the sim pose and velocities
+            done = self.sim.next_timestep(rotor_speeds) if self.distance_from_target() > 0.05 else True
             reward += self.get_reward() 
             pose_all.append(self.sim.pose)
         next_state = np.concatenate(pose_all)
-        return next_state, reward, done
+        return next_state, reward, self.distance_from_target(), done
 
     def reset(self):
         """Reset the sim to start a new episode."""
